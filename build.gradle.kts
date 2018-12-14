@@ -1,5 +1,6 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val kotlinVersion = "1.2.70"
 
@@ -64,6 +65,13 @@ fun log4j(
     "org.apache.logging.log4j:log4j-$module:2.10.0"
 }
 
+tasks.getByName("compileTestKotlin", KotlinCompile::class).apply {
+    kotlinOptions.apply {
+        jvmTarget = "1.8"
+        freeCompilerArgs = listOf("-Xjvm-default=enable")
+    }
+}
+
 tasks.getByName("test", Test::class).apply {
     filter {
         exclude("**/*IT.class")
@@ -74,6 +82,7 @@ val testIntegration = task<Test>("testIntegration") {
     filter {
         include("**/*IT.class")
     }
+    failFast = true
     maxParallelForks = 4
 }
 
