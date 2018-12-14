@@ -23,6 +23,9 @@ Dropping a requirement of a major version of a dependency is a new contract.
 ## [Unreleased]
 [Unreleased]: https://github.com/atlassian/aws-infrastructure/compare/release-2.10.1...master
 
+### Added
+- Expose `DatasetCatalogue().smallJiraSeven()` for public consumption. Fix [JPERF-214].
+
 ### Fixed
 - Properly stop Docker containers (e.g. MySQL) in `CustomDatasetSource`. Unblock [JPERF-214].
 
@@ -147,11 +150,6 @@ resolve [JPERF-433].
 - Attempt to download MySQL connector multiple times to make this procedure more reliable. Resolve [JPERF-342].
 
 [JPERF-342]: https://ecosystem.atlassian.net/browse/JPERF-342
-
-### Fixed
-- Properly stop Docker containers (e.g. MySQL) in `CustomDatasetSource`. Unblock [JPERF-214].
-
-[JPERF-214]:https://ecosystem.atlassian.net/browse/JPERF-214
 
 ## [2.5.0] - 2019-01-07
 [2.5.0]: https://github.com/atlassian/aws-infrastructure/compare/release-2.4.0...release-2.5.0

@@ -1,5 +1,6 @@
 package com.atlassian.performance.tools.awsinfrastructure.api
 
+import com.amazonaws.regions.Regions
 import com.atlassian.performance.tools.aws.api.StorageLocation
 import com.atlassian.performance.tools.awsinfrastructure.S3DatasetPackage
 import com.atlassian.performance.tools.infrastructure.api.database.MySqlDatabase
@@ -53,6 +54,17 @@ class DatasetCatalogue {
             )
         )
     }
+
+    fun smallJiraSeven(): Dataset = custom(
+        location = StorageLocation(
+            URI("s3://jpt-custom-datasets-storage-a008820-datasetbucket-1sjxdtrv5hdhj/")
+                .resolve("af4c7d3b-925c-464c-ab13-79f615158316"),
+            Regions.EU_WEST_1
+        ),
+        label = "7k issues JSW 7.2.0",
+        databaseDownload = ofMinutes(5),
+        jiraHomeDownload = ofMinutes(5)
+    )
 
     fun custom(
         location: StorageLocation,

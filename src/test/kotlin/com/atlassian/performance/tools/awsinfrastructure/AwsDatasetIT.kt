@@ -13,13 +13,12 @@ import com.atlassian.performance.tools.ssh.api.Ssh
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 import java.net.URI
-import java.time.Duration.ofMinutes
 import java.util.*
 
 class AwsDatasetIT {
 
     private val workspace = taskWorkspace.isolateTest(javaClass.simpleName)
-    private val sourceDataset = smallJiraSeven()
+    private val sourceDataset = DatasetCatalogue().smallJiraSeven()
 
     @Test
     fun shouldRemoveBackups() {
@@ -41,17 +40,6 @@ class AwsDatasetIT {
                     }
             }
     }
-
-    private fun smallJiraSeven(): Dataset = DatasetCatalogue().custom(
-        location = StorageLocation(
-            URI("s3://jpt-custom-datasets-storage-a008820-datasetbucket-1sjxdtrv5hdhj/")
-                .resolve("af4c7d3b-925c-464c-ab13-79f615158316"),
-            Regions.EU_WEST_1
-        ),
-        label = "7k issues",
-        databaseDownload = ofMinutes(5),
-        jiraHomeDownload = ofMinutes(5)
-    )
 
     /**
      * [Official timebomb licenses](https://developer.atlassian.com/platform/marketplace/timebomb-licenses-for-testing-server-apps/)
