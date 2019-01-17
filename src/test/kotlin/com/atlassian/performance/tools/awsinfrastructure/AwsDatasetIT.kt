@@ -111,6 +111,7 @@ class AwsDatasetIT {
                 val result = SshMysqlClient().runSql(ssh, "SELECT * FROM jiradb.productlicense;")
                 postProvisioningLicenses = result.output
             }
+            infrastructure.downloadResults(workspace.directory)
         }
 
         assertThat(postProvisioningLicenses.flattenSshMultiline())

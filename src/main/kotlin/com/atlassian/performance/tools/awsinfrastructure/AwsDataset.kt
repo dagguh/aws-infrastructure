@@ -13,6 +13,8 @@ import com.atlassian.performance.tools.awsinfrastructure.api.jira.StandaloneForm
 import com.atlassian.performance.tools.awsinfrastructure.api.virtualusers.AbsentVirtualUsersFormula
 import com.atlassian.performance.tools.infrastructure.api.dataset.Dataset
 import com.atlassian.performance.tools.infrastructure.api.distribution.PublicJiraSoftwareDistribution
+import com.atlassian.performance.tools.infrastructure.api.jira.JiraNodeConfig
+import com.atlassian.performance.tools.infrastructure.api.jvm.EnabledJvmDebug
 import com.atlassian.performance.tools.workspace.api.TestWorkspace
 import org.apache.logging.log4j.LogManager.getLogger
 import java.time.Duration
@@ -51,7 +53,17 @@ internal class AwsDataset(
                 database = dataset.database,
                 jiraHomeSource = dataset.jiraHomeSource,
                 productDistribution = PublicJiraSoftwareDistribution("7.2.0")
-            ).computer(C5NineExtraLargeEphemeral()).build(),
+            )
+                .computer(C5NineExtraLargeEphemeral())
+                .config(
+                    JiraNodeConfig.Builder()
+                        .debug(EnabledJvmDebug(
+                            port = 5005,
+                            suspend = false
+                        ))
+                        .build()
+                )
+                .build(),
             virtualUsersFormula = AbsentVirtualUsersFormula(),
             aws = aws
         )
