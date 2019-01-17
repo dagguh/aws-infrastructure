@@ -66,17 +66,6 @@ class AwsDatasetIT {
                 region = Regions.EU_WEST_1
             )
         )
-        // 10 user starter non-eval host product license, expires in 3 hours
-        val timebombLicense = """
-            AAABiQ0ODAoPeNp1kk9TwjAQxe/9FJnxXKYpeoCZHqCtgsqfgaIO4yWELURD0tm0KN/eWOjYdvD68
-            vbtb3dzM9GKTBgS2iOU9n3a7/pkHiXE96jvbNhho3XnWXBQBuKtyIVWQTxN4sV8MV7GTirMHk5QO
-            ZJTBsG91eITvPdJBEeQOgN0uNRHwIYtLKWGa1ocNoCzdGUATUA9h2uVdhjPxRGCHAtw5gXyPTMQs
-            RwCn1Lf9XzXv3NqwVN2gGCZDBYWstLj70zgqSyad0fVWPXgJaClGUfB8KGXuG+rl1v3ab0euUOPv
-            jofAlmD/XG8GJBY5YAZCtMa9Ze5MagVZAGKX/FVE4eyMDZtqrdgAq+19zJlWEr/Na0TXjkTx4KLj
-            WzeKbyIjaAJE7aDYpa2tTSO+mvbCrBKo/ryate4Up9KfylnhjumhGEl0SCXzBjB1B9Q/QYhQulrH
-            /fcue6svl1di8BwFFnZKAGTE3mGIalGksliJxTZVqTmvLF6fXxksjhzpkwaqP5s3fMDBMYhRDAtA
-            hUAhcR3uL05YCxbclq7h1dNa+Nc+j4CFBrdN005oVlMN9yBlWeM4TlnrOhqX02j3
-            """.trimIndent()
         // 10 user Jira Software Data Center license, expires in 3 hours
         val timebombDcLicense = """
             AAAB8w0ODAoPeNp9Uk2P2jAQvedXWOoNydmELVKLFKlL4u7SLglKQj+27cEkA3gb7GjssMu/rwnQl
@@ -93,10 +82,7 @@ class AwsDatasetIT {
         val licenseOverriddenDataset = sourceDataset.overrideDatabase(
             LicenseOverridingDatabase(
                 database = sourceDataset.database,
-                licenses = listOf(
-                    timebombLicense,
-                    timebombDcLicense
-                )
+                licenses = listOf(timebombDcLicense)
             )
         )
         lateinit var postProvisioningLicenses: String
@@ -115,7 +101,6 @@ class AwsDatasetIT {
         }
 
         assertThat(postProvisioningLicenses.flattenSshMultiline())
-            .contains(timebombLicense.flattenMultiline())
             .contains(timebombDcLicense.flattenMultiline())
     }
 }
