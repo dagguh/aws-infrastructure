@@ -87,11 +87,14 @@ class CustomDatasetSource(
     }
 
     private fun stopJira(host: SshHost) {
-        val shutdownTomcat = "echo SHUTDOWN | nc localhost 8005"
+        val shutdownTomcat = "echo SHUTDOWN | nc localhost 8005 -v"
         val waitForNoJavaProcess = "while ps -C java -o pid=; do sleep 5; done"
         Ssh(host, connectivityPatience = 4)
             .newConnection()
-            .use { it.execute("$shutdownTomcat && $waitForNoJavaProcess", Duration.ofMinutes(3)) }
+            .use {
+                it.execute(shutdownTomcat)
+                it.execute(waitForNoJavaProcess, Duration.ofMinutes(3))
+            }
     }
 
     private fun stopDockerContainers(host: SshHost) {
