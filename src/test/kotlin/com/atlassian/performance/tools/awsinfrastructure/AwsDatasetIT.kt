@@ -67,7 +67,7 @@ class AwsDatasetIT {
             xzBv0toB3Yuk5lCwuualHs8fSD0/3NqdZ48nBd+5bjYilfNdokZr6zmP7TmY5YwLAIUNq8MbmR8G
             faV9ulfLz1K+3g9j1YCFDeq7aYROMQbwMIvHimNt7/bJCCIX02nj
             """.trimIndent()
-        val licenseOverriddenDataset = sourceDataset.overrideDatabase(
+        val runtimeLicenseDataset = sourceDataset.overrideDatabase(
             LicenseOverridingDatabase(
                 database = sourceDataset.database,
                 licenses = listOf(timebombDcLicense)
@@ -75,7 +75,14 @@ class AwsDatasetIT {
         )
         lateinit var postProvisioningLicenses: String
 
-        AwsDataset(licenseOverriddenDataset).modify(
+        val persistedLicenseDataset = AwsDataset(runtimeLicenseDataset).modify(
+            aws = aws,
+            workspace = workspace,
+            newDatasetName = UUID.randomUUID().toString()
+        ) { infrastructure ->
+            infrastructure.downloadResults(workspace.directory.resolve("persisted"))
+        }
+        AwsDataset(persistedLicenseDataset).modify(
             aws = aws,
             workspace = workspace,
             newDatasetName = UUID.randomUUID().toString()
@@ -85,7 +92,7 @@ class AwsDatasetIT {
                 val result = SshMysqlClient().runSql(ssh, "SELECT * FROM jiradb.productlicense;")
                 postProvisioningLicenses = result.output
             }
-            infrastructure.downloadResults(workspace.directory)
+            infrastructure.downloadResults(workspace.directory.resolve("reused"))
         }
 
         assertThat(postProvisioningLicenses.flattenSshMultiline())
