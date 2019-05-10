@@ -56,6 +56,7 @@ dependencies {
     testCompile("junit:junit:4.12")
     testCompile("org.assertj:assertj-core:3.11.1")
     testCompile("org.hamcrest:hamcrest-library:1.3")
+    testCompile("com.mashape.unirest:unirest-java:1.4.9")
 }
 
 fun log4j(

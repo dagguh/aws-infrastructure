@@ -3,35 +3,26 @@ package com.atlassian.performance.tools.awsinfrastructure
 import com.amazonaws.regions.Regions
 import com.atlassian.performance.tools.aws.api.StorageLocation
 import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.aws
+import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.logContext
 import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.taskWorkspace
 import com.atlassian.performance.tools.awsinfrastructure.api.DatasetCatalogue
 import com.atlassian.performance.tools.awsinfrastructure.api.Infrastructure
 import com.atlassian.performance.tools.infrastructure.api.dataset.Dataset
 import com.atlassian.performance.tools.ssh.api.Ssh
-import org.apache.http.auth.AuthScope
-import org.apache.http.auth.UsernamePasswordCredentials
-import org.apache.http.client.HttpClient
-import org.apache.http.client.methods.HttpGet
-import org.apache.http.client.methods.HttpPut
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.BasicCredentialsProvider
-import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.logging.log4j.LogManager
+import com.mashape.unirest.http.HttpResponse
+import com.mashape.unirest.http.Unirest
 import org.apache.logging.log4j.Logger
+import org.json.JSONObject
 import org.junit.Test
 import java.net.URI
 import java.time.Duration.ofMinutes
 import java.util.*
-import javax.json.Json
-import javax.json.JsonObject
-import javax.json.JsonValue
 
 class AwsDatasetIT {
 
-    private val logger: Logger = LogManager.getLogger(this::class.java)
+    private val logger: Logger = logContext.getLogger(this::class.java.canonicalName)
     private val workspace = taskWorkspace.isolateTest(javaClass.simpleName)
-    private val sourceDataset = smallJiraSeven()
+    private val sourceDataset = DatasetCatalogue().custom(StorageLocation(URI("s3://jpt-custom-datasets-storage-a008820-datasetbucket-1sjxdtrv5hdhj/dataset-dd3c3aa7-ca8e-4537-8045-ba575e7b3130"), com.amazonaws.regions.Regions.EU_WEST_1))
 
     @Test
     fun shouldRemoveBackups() {
@@ -81,34 +72,24 @@ class AwsDatasetIT {
         infrastructure: Infrastructure<*>
     ) {
         val desiredArchiveRatio = (3400.0 / 4000.0)..(3600.0 / 4000.0)
-        val rest = infrastructure
+        val jira = infrastructure
             .jira
             .address
-            .resolve("rest/api/2/")
-        val http = HttpClientBuilder.create()
-            .setDefaultCredentialsProvider(
-                BasicCredentialsProvider().apply {
-                    setCredentials(
-                        AuthScope.ANY,
-                        UsernamePasswordCredentials("admin", "admin")
-                    )
-                }
-            )
-            .build()
+        val rest = jira.resolve("rest/api/2/")
         val projectIds = rest
             .resolve("project")
-            .let { HttpGet(it) }
-            .let { http.execute(it) }
-            .entity
-            .content
-            .let { Json.createReader(it) }
-            .readArray()
-            .map { it.asJsonObject() }
+            .let { Unirest.get(it.toString()) }
+            .basicAuth("admin", "admin")
+            .asJson()
+            .expectOk()
+            .body
+            .array
+            .map { it as JSONObject }
             .map { it.getString("id") }
         var fixedProjects = 0
         val projectsToFix = projectIds.size
         for (projectId in projectIds) {
-            fixProject(projectId, desiredArchiveRatio, rest, http)
+            fixProject(projectId, desiredArchiveRatio, rest)
             fixedProjects++
             logger.info("$fixedProjects/$projectsToFix projects fixed")
         }
@@ -117,36 +98,34 @@ class AwsDatasetIT {
     private fun fixProject(
         projectId: String,
         archiveRatioTarget: ClosedRange<Double>,
-        rest: URI,
-        http: HttpClient
+        rest: URI
     ) {
         val versions = rest
             .resolve("project/$projectId/versions")
-            .let { HttpGet(it) }
-            .let { http.execute(it) }
-            .entity
-            .content
-            .let { Json.createReader(it) }
-            .readArray()
-            .map { it.asJsonObject() }
+            .let { Unirest.get(it.toString()) }
+            .basicAuth("admin", "admin")
+            .asJson()
+            .expectOk()
+            .body
+            .array
+            .map { it as JSONObject }
         var archivedCount = versions
             .filter { it.isArchived() }
             .size
         val totalCount = versions.size
         for (version in versions) {
+            val versionId = version.getString("id")
             val archiveRatio = archivedCount.toDouble() / totalCount
             if (archiveRatio in archiveRatioTarget) {
                 break
             } else if (archiveRatio > archiveRatioTarget.endInclusive) {
                 if (version.isArchived()) {
-                    val unarchived = version.setArchived(false)
-                    update(unarchived, rest, http)
+                    update(versionId, false, rest)
                     archivedCount--
                 }
             } else {
                 if (version.isArchived().not()) {
-                    val archived = version.setArchived(true)
-                    update(archived, rest, http)
+                    update(versionId, true, rest)
                     archivedCount++
                 }
             }
@@ -154,23 +133,30 @@ class AwsDatasetIT {
     }
 
     private fun update(
-        version: JsonObject,
-        rest: URI,
-        http: HttpClient
+        versionId: String,
+        archived: Boolean,
+        rest: URI
     ) {
-        val versionId = version.getString("id")
+        val version = JSONObject(mapOf(
+            "id" to versionId,
+            "archived" to archived
+        ))
         rest
             .resolve("version/$versionId")
-            .let { HttpPut(it) }
-            .apply { entity = StringEntity(version.toString(), ContentType.APPLICATION_JSON) }
-            .let { http.execute(it) }
+            .let { Unirest.put(it.toString()) }
+            .basicAuth("admin", "admin")
+            .header("Content-Type", "application/json")
+            .body(version)
+            .asJson()
+            .expectOk()
     }
 
-    private fun JsonObject.isArchived(): Boolean = getBoolean("archived")
+    private fun <T> HttpResponse<T>.expectOk(): HttpResponse<T> {
+        if (status != 200) {
+            throw Exception("Expected a HTTP 200, but got HTTP $status, headers: $headers, body: $body")
+        }
+        return this
+    }
 
-    private fun JsonObject.setArchived(
-        archived: Boolean
-    ): JsonObject = Json.createObjectBuilder(this)
-        .add("archived", if (archived) JsonValue.TRUE else JsonValue.FALSE)
-        .build()
+    private fun JSONObject.isArchived(): Boolean = getBoolean("archived")
 }
