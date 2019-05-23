@@ -55,6 +55,10 @@ class DatasetCatalogue {
         )
     }
 
+    /**
+     * Works with Jira Server.
+     * Does not work with Jira Data Center.
+     */
     fun smallJiraSeven(): Dataset = custom(
         location = StorageLocation(
             URI("s3://jpt-custom-datasets-storage-a008820-datasetbucket-1sjxdtrv5hdhj/")

@@ -24,7 +24,7 @@ Dropping a requirement of a major version of a dependency is a new contract.
 [Unreleased]: https://github.com/atlassian/aws-infrastructure/compare/release-2.10.1...master
 
 ### Added
-- Expose `DatasetCatalogue().smallJiraSeven()` for public consumption. Fix [JPERF-214].
+- Offer `DatasetCatalogue().smallJiraSeven()` for Jira Server. Fix [JPERF-214].
 
 ### Fixed
 - Properly stop Docker containers (e.g. MySQL) in `CustomDatasetSource`. Unblock [JPERF-214].
