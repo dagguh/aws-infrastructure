@@ -25,7 +25,7 @@ Dropping a requirement of a major version of a dependency is a new contract.
 
 ### Added
 - Add support for `infrastructure:4.12`.
-- Expose `DatasetCatalogue().smallJiraSeven()` for public consumption. Fix [JPERF-214].
+- Offer `DatasetCatalogue().smallJiraSeven()` for Jira Server. Fix [JPERF-214].
 
 ### Fixed
 - Make `Ubuntu` thread safe. Resolves [JPERF-468].

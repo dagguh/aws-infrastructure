@@ -8,8 +8,8 @@ import com.atlassian.performance.tools.awsinfrastructure.api.Infrastructure
 import com.atlassian.performance.tools.awsinfrastructure.api.InfrastructureFormula
 import com.atlassian.performance.tools.awsinfrastructure.api.ProvisionedInfrastructure
 import com.atlassian.performance.tools.awsinfrastructure.api.hardware.C5NineExtraLargeEphemeral
-import com.atlassian.performance.tools.awsinfrastructure.api.jira.DataCenterFormula
 import com.atlassian.performance.tools.awsinfrastructure.api.jira.Jira
+import com.atlassian.performance.tools.awsinfrastructure.api.jira.StandaloneFormula
 import com.atlassian.performance.tools.awsinfrastructure.api.virtualusers.AbsentVirtualUsersFormula
 import com.atlassian.performance.tools.infrastructure.api.dataset.Dataset
 import com.atlassian.performance.tools.infrastructure.api.distribution.PublicJiraSoftwareDistribution
@@ -49,20 +49,20 @@ internal class AwsDataset(
                 useCase = "Clean backups from a dataset",
                 lifespan = Duration.ofMinutes(50)
             ),
-            jiraFormula = DataCenterFormula.Builder(
+            jiraFormula = StandaloneFormula.Builder(
                 database = dataset.database,
                 jiraHomeSource = dataset.jiraHomeSource,
                 productDistribution = PublicJiraSoftwareDistribution("7.2.0")
             )
                 .computer(C5NineExtraLargeEphemeral())
-                .configs(listOf(
+                .config(
                     JiraNodeConfig.Builder()
                         .debug(EnabledJvmDebug(
                             port = 5005,
                             suspend = false
                         ))
                         .build()
-                ))
+                )
                 .build(),
             virtualUsersFormula = AbsentVirtualUsersFormula(),
             aws = aws
