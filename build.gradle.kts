@@ -72,7 +72,7 @@ tasks.getByName("test", Test::class).apply {
 
 val testIntegration = task<Test>("testIntegration") {
     filter {
-        include("**/*IT.class")
+        include("**/AwsDatasetModificationIT.class")
     }
     maxParallelForks = 5
 }

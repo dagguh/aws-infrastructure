@@ -60,8 +60,8 @@ class CustomDatasetSource(
             val renamed = jiraHome.move(FileNames.JIRAHOME, Duration.ofMinutes(1))
             try {
                 renamed
-                    .archive(Duration.ofMinutes(25))
-                    .upload(location, Duration.ofMinutes(10))
+                    .archive(Duration.ofMinutes(35))
+                    .upload(location, Duration.ofMinutes(15))
             } finally {
                 renamed.move(jiraHome.location, Duration.ofMinutes(1))
             }
