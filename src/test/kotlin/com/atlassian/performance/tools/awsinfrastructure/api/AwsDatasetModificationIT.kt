@@ -7,6 +7,7 @@ import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.
 import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.taskWorkspace
 import com.atlassian.performance.tools.awsinfrastructure.S3DatasetPackage
 import com.atlassian.performance.tools.awsinfrastructure.api.dataset.DatasetHost
+import com.atlassian.performance.tools.awsinfrastructure.api.dataset.SshMysqlDatasetPublication
 import com.atlassian.performance.tools.awsinfrastructure.api.hardware.C5NineExtraLargeEphemeral
 import com.atlassian.performance.tools.awsinfrastructure.api.hardware.Volume
 import com.atlassian.performance.tools.awsinfrastructure.api.jira.StandaloneFormula
@@ -78,8 +79,7 @@ class AwsDatasetModificationIT {
                     aws = aws
                 )
             })
-            .build()
 
-        modification.modify()
+        SshMysqlDatasetPublication().preparePublication(modification)
     }
 }
