@@ -42,8 +42,8 @@ class InfrastructureFormulaIT {
             lifespan = Duration.ofMinutes(30)
         )
         val kibana = Kibana(
-            address = URI("http://34.253.121.248:5601"),
-            elasticsearchHosts = listOf(URI("http://34.253.121.248:9200"))
+            address = URI("http://34.244.228.125:5601"),
+            elasticsearchHosts = listOf(URI("http://34.244.228.125:9200"))
         )
         val network = NetworkFormula(investment, aws).provision()
         val provisionedInfrastructure = InfrastructureFormula(

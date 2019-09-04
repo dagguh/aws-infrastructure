@@ -23,7 +23,7 @@ class AwsUbuntuKibana {
                     .withInstanceType(InstanceType.C5Xlarge)
                     .withSecurityGroupIds(
                         openPort(9200, "elasticsearch", ec2, awaitingEc2, investment).groupId,
-                        openPort(9300, "elasticsearc-clustering", ec2, awaitingEc2, investment).groupId,
+                        openPort(9300, "elasticsearch-clustering", ec2, awaitingEc2, investment).groupId,
                         openPort(5601, "elk", ec2, awaitingEc2, investment).groupId
                     )
             }
