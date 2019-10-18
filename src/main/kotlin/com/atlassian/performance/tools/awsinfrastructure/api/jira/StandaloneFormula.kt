@@ -16,6 +16,7 @@ import com.atlassian.performance.tools.awsinfrastructure.jira.StandaloneNodeForm
 import com.atlassian.performance.tools.concurrency.api.submitWithLogContext
 import com.atlassian.performance.tools.infrastructure.api.app.Apps
 import com.atlassian.performance.tools.infrastructure.api.database.Database
+import com.atlassian.performance.tools.infrastructure.api.database.MySqlDatabase
 import com.atlassian.performance.tools.infrastructure.api.distribution.ProductDistribution
 import com.atlassian.performance.tools.infrastructure.api.jira.JiraHomeSource
 import com.atlassian.performance.tools.infrastructure.api.jira.JiraNodeConfig
@@ -178,6 +179,7 @@ class StandaloneFormula private constructor(
         CloseableThreadContext.push("Jira node").use {
             key.get().file.facilitateSsh(jiraIp)
         }
+        val isMySql = database is MySqlDatabase
         val nodeFormula = StandaloneNodeFormula(
             config = config,
             jiraHomeSource = jiraHomeSource,
@@ -186,7 +188,8 @@ class StandaloneFormula private constructor(
             databaseIp = databaseIp,
             productDistribution = productDistribution,
             ssh = ssh,
-            computer = computer
+            computer = computer,
+            isMySql = isMySql
         )
 
         uploadPlugins.get()
