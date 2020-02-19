@@ -1,10 +1,18 @@
 package com.atlassian.performance.tools.awsinfrastructure.api
 
 import com.amazonaws.regions.Regions
+import com.atlassian.performance.tools.aws.api.Investment
 import com.atlassian.performance.tools.aws.api.StorageLocation
 import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.aws
 import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime.taskWorkspace
+import com.atlassian.performance.tools.awsinfrastructure.api.dataset.DatasetHost
+import com.atlassian.performance.tools.awsinfrastructure.api.hardware.C5NineExtraLargeEphemeral
+import com.atlassian.performance.tools.awsinfrastructure.api.jira.StandaloneFormula
+import com.atlassian.performance.tools.awsinfrastructure.api.virtualusers.AbsentVirtualUsersFormula
 import com.atlassian.performance.tools.infrastructure.api.dataset.Dataset
+import com.atlassian.performance.tools.infrastructure.api.distribution.PublicJiraSoftwareDistribution
+import com.atlassian.performance.tools.infrastructure.api.jira.JiraNodeConfig
+import com.atlassian.performance.tools.infrastructure.api.splunk.AtlassianSplunkForwarder
 import com.atlassian.performance.tools.ssh.api.Ssh
 import org.junit.Test
 import java.net.URI
@@ -15,6 +23,28 @@ class AwsDatasetModificationIT {
 
     private val workspace = taskWorkspace.isolateTest(javaClass.simpleName)
     private val sourceDataset = smallJiraSeven()
+    private val host = DatasetHost { dataset ->
+        InfrastructureFormula(
+            investment = Investment(
+                useCase = "Generic purpose dataset modification",
+                lifespan = ofMinutes(50)
+            ),
+            jiraFormula = StandaloneFormula.Builder(
+                database = dataset.database,
+                jiraHomeSource = dataset.jiraHomeSource,
+                productDistribution = PublicJiraSoftwareDistribution("7.2.0")
+            )
+                .computer(C5NineExtraLargeEphemeral())
+                .config(
+                    JiraNodeConfig.Builder()
+                        .splunkForwarder(AtlassianSplunkForwarder(emptyMap(), "TODO"))
+                        .build()
+                )
+                .build(),
+            virtualUsersFormula = AbsentVirtualUsersFormula(),
+            aws = aws
+        )
+    }
 
     @Test
     fun shouldRemoveBackups() {
@@ -34,6 +64,7 @@ class AwsDatasetModificationIT {
             aws = aws,
             dataset = sourceDataset
         )
+            .host(host)
             .workspace(workspace)
             .onlineTransformation(transformation)
             .build()
