@@ -1,26 +1,33 @@
 package com.atlassian.performance.tools.awsinfrastructure.api.jira
 
-import com.atlassian.performance.tools.aws.api.Aws
 import com.atlassian.performance.tools.aws.api.Investment
-import com.atlassian.performance.tools.aws.api.SshKey
 import com.atlassian.performance.tools.aws.api.SshKeyFormula
 import com.atlassian.performance.tools.awsinfrastructure.IntegrationTestRuntime
 import com.atlassian.performance.tools.awsinfrastructure.NetworkFormula
-import com.atlassian.performance.tools.awsinfrastructure.api.Network
-import com.atlassian.performance.tools.awsinfrastructure.api.database.AwsMysqlServer
 import com.atlassian.performance.tools.awsinfrastructure.api.hardware.M5ExtraLargeEphemeral
 import com.atlassian.performance.tools.awsinfrastructure.api.hardware.Volume
 import com.atlassian.performance.tools.infrastructure.api.database.DockerMysqlServer
-import com.atlassian.performance.tools.infrastructure.api.database.MySqlDatabase
-import com.atlassian.performance.tools.infrastructure.api.dataset.Dataset
 import com.atlassian.performance.tools.infrastructure.api.dataset.HttpDatasetPackage
+import com.atlassian.performance.tools.infrastructure.api.distribution.PublicJiraSoftwareDistribution
 import com.atlassian.performance.tools.infrastructure.api.jira.JiraHomePackage
+import com.atlassian.performance.tools.infrastructure.api.jira.JiraLaunchTimeouts
+import com.atlassian.performance.tools.infrastructure.api.jira.install.ParallelInstallation
+import com.atlassian.performance.tools.infrastructure.api.jira.install.hook.PreInstallHooks
+import com.atlassian.performance.tools.infrastructure.api.jira.instance.JiraDataCenterPlan
+import com.atlassian.performance.tools.infrastructure.api.jira.instance.JiraNodePlan
+import com.atlassian.performance.tools.infrastructure.api.jira.instance.PreInstanceHooks
+import com.atlassian.performance.tools.infrastructure.api.jira.sharedhome.NfsSharedHome
+import com.atlassian.performance.tools.infrastructure.api.jira.start.JiraLaunchScript
+import com.atlassian.performance.tools.infrastructure.api.jira.start.hook.RestUpgrade
+import com.atlassian.performance.tools.infrastructure.api.jvm.AdoptOpenJDK
+import com.atlassian.performance.tools.infrastructure.api.loadbalancer.ApacheProxyPlan
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 import java.net.URI
+import java.nio.file.Files
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 
 class HooksDataCenterFormulaIT {
 
@@ -28,69 +35,91 @@ class HooksDataCenterFormulaIT {
     private val datasetUri = URI("https://s3-eu-west-1.amazonaws.com/")
         .resolve("jpt-custom-datasets-storage-a008820-datasetbucket-1sjxdtrv5hdhj/")
         .resolve("dataset-f8dba866-9d1b-492e-b76c-f4a78ac3958c/")
-    private val dataset = datasetUri
-        .let { uri ->
-            Dataset(
-                label = "7k issues JSW 7.2.0",
-                database = MySqlDatabase(HttpDatasetPackage(
-                    uri = uri.resolve("database.tar.bz2"),
-                    downloadTimeout = Duration.ofMinutes(6)
-                )),
-                jiraHomeSource = JiraHomePackage(HttpDatasetPackage(
-                    uri = uri.resolve("jirahome.tar.bz2"),
-                    downloadTimeout = Duration.ofMinutes(6)
-                ))
-            )
-        }
+    private val mysql = HttpDatasetPackage(
+        uri = datasetUri.resolve("database.tar.bz2"),
+        downloadTimeout = Duration.ofMinutes(6)
+    )
+    private val jiraHome = JiraHomePackage(
+        HttpDatasetPackage(
+            uri = datasetUri.resolve("jirahome.tar.bz2"),
+            downloadTimeout = Duration.ofMinutes(6)
+        )
+    )
     private val lifespan = Duration.ofMinutes(30)
 
     @Test
     fun shouldProvisionDc() {
+        // given
         val aws = IntegrationTestRuntime.aws
         val nonce = UUID.randomUUID().toString()
-        val (investment, sshKey, network) = provisionDependencies(aws, nonce)
-        val mysql = AwsMysqlServer(
-            DockerMysqlServer.Builder(
+        val stack: JiraStack = provisionDependencies(aws, nonce)
+        val database = DockerMysqlServer.Builder(stack.forDatabase(), mysql)
+            .source(
                 HttpDatasetPackage(
                     uri = datasetUri.resolve("database.tar.bz2"),
                     downloadTimeout = Duration.ofMinutes(6)
                 )
-            ).build(),
-            aws,
-            investment,
-            M5ExtraLargeEphemeral(),
-            Volume(100),
-            network,
-            sshKey,
-            Duration.ofMinutes(4)
-        ) // TODO builder
-
-        val dcFormula = HooksDataCenterFormula.Builder(dataset.jiraHomeSource)
-            .mysql(mysql)
-            .nodes(
+            )
+            .build()
+        val upgrade = RestUpgrade(JiraLaunchTimeouts.Builder().build(), "admin", "admin")
+        val installation = ParallelInstallation(jiraHome, PublicJiraSoftwareDistribution("8.13.0"), AdoptOpenJDK())
+        val dcPlan = JiraDataCenterPlan.Builder(stack.forJiraNodes())
+            .nodePlans(
                 (1..2).map {
-                    JiraNodeProvisioning.Builder(dataset.jiraHomeSource).build()
+                    JiraNodePlan.Builder(stack)
+                        .installation(installation)
+                        .start(JiraLaunchScript())
+                        .hooks(PreInstallHooks.default().also { it.postStart.insert(upgrade) })
+                        .build()
                 }
             )
-            .network(network)
+            .instanceHooks(
+                PreInstanceHooks.default()
+                    .also { it.insert(database) }
+                    .also { it.insert(NfsSharedHome(jiraHome, stack.forSharedHome())) }
+            )
+            .balancerPlan(ApacheProxyPlan(stack.forLoadBalancer()))
             .build()
 
-        val provisionedJira = dcFormula.provision(
-            investment = investment,
-            pluginsTransport = aws.jiraStorage(nonce),
-            resultsTransport = aws.resultsStorage(nonce),
-            key = CompletableFuture.completedFuture(sshKey),
-            roleProfile = aws.shortTermStorageAccess(),
-            aws = aws
-        )
+        // when
+        val dataCenter = dcPlan.materialize()
 
-        provisionedJira.resource.release().get(1, TimeUnit.MINUTES)
+        // then
+        dataCenter.nodes.forEach { node ->
+            val installed = node.installed
+            val serverXml = installed
+                .installation
+                .resolve("conf/server.xml")
+                .download(Files.createTempFile("downloaded-config", ".xml"))
+            assertThat(serverXml.readText()).contains("<Connector port=\"${installed.http.tcp.port}\"")
+            assertThat(node.pid).isPositive()
+            installed.http.tcp.ssh.newConnection().use { ssh ->
+                ssh.execute("wget ${dataCenter.address}")
+            }
+        }
+        val reports = dcPlan.report().downloadTo(Files.createTempDirectory("jira-dc-plan-"))
+        assertThat(reports).isDirectory()
+        val fileTree = reports
+            .walkTopDown()
+            .map { reports.toPath().relativize(it.toPath()) }
+            .toList()
+        assertThat(fileTree.map { it.toString() }).contains(
+            "jira-node-1/root/atlassian-jira-software-7.13.0-standalone/logs/catalina.out",
+            "jira-node-1/root/~/jpt-jstat.log",
+            "jira-node-2/root/atlassian-jira-software-7.13.0-standalone/logs/catalina.out"
+        )
+        assertThat(fileTree.filter { it.fileName.toString() == "atlassian-jira.log" })
+            .`as`("Jira log from $fileTree")
+            .isNotEmpty
+        assertThat(fileTree.filter { it.fileName.toString().startsWith("atlassian-jira-gc") })
+            .`as`("GC logs from $fileTree")
+            .isNotEmpty
     }
 
     private fun provisionDependencies(
         aws: Aws,
         nonce: String
-    ): AwsDcDependencies {
+    ): JiraStack {
         val sshKey = SshKeyFormula(
             ec2 = aws.ec2,
             workingDirectory = workspace.directory,
@@ -102,12 +131,15 @@ class HooksDataCenterFormulaIT {
             lifespan = lifespan
         )
         val network = NetworkFormula(investment, aws).provision()
-        return AwsDcDependencies(investment, sshKey, network)
+        return JiraStack.Builder(
+            aws,
+            network,
+            investment,
+            CompletableFuture.completedFuture(sshKey),
+            aws.shortTermStorageAccess()
+        )
+            .databaseComputer(M5ExtraLargeEphemeral())
+            .databaseVolume(Volume(100))
+            .build()
     }
-
-    private data class AwsDcDependencies(
-        val investment: Investment,
-        val sshKey: SshKey,
-        val network: Network
-    )
 }
